@@ -205,14 +205,11 @@ class ElasticQuery
 
     /**
      * Get count documents
-     * @param array $fields
      * @return integer
      */
-    public function count(array $fields = []) : int
+    public function count() : int
     {
         $this->applyScopes();
-
-        if(count($fields) > 0) $this->fields = $fields;
 
         return (int) Arr::get($this->client->count([
             'index' => $this->model::$elasticIndex,
