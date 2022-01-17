@@ -1,6 +1,6 @@
 {
   "name": "niocncn/laravel-elastic-front",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Laravel Elastic Front",
   "require": {
     "php": "^7.3|^8.0",
