@@ -148,7 +148,7 @@ class ElasticQuery
         $this->limit = $limit;
         return $this;
     }
-    
+
     /**
      * @param $limit
      * @return $this
@@ -202,7 +202,24 @@ class ElasticQuery
             )
         );
     }
-    
+
+    /**
+     * Get count documents
+     * @param array $fields
+     * @return integer
+     */
+    public function count(array $fields = []) : int
+    {
+        $this->applyScopes();
+
+        if(count($fields) > 0) $this->fields = $fields;
+
+        return (int) Arr::get($this->client->count([
+            'index' => $this->model::$elasticIndex,
+            'body' => $this->getSearchBody()
+        ]),'count',0);
+    }
+
     /**
      * Get the index count
      *
