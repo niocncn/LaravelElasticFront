@@ -216,7 +216,15 @@ class ElasticQuery
 
         return (int) Arr::get($this->client->count([
             'index' => $this->model::$elasticIndex,
-            'body' => $this->getSearchBody()
+            'body' => [
+                "query" => [
+                    "bool" => [
+                        "must" => $this->must,
+                        "must_not" => $this->must_not,
+                        "should" => $this->should
+                    ]
+                ],
+            ]
         ]),'count',0);
     }
 
