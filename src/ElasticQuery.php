@@ -221,25 +221,13 @@ class ElasticQuery
     }
 
     /**
-     * Get the index count
-     *
-     * @return int
-     */
-    public function count()
-    {
-        return $this->client->count()['count'];
-    }
-
-    /**
      * Get all elements from the collection
      *
      * @return Collection
      */
-    public function all()
+    public function all() : Collection
     {
-        $count = $this->count();
-
-        return $this->limit($count)->get();
+        return $this->limit(10000)->get();
     }
 
     /**
