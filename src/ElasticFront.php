@@ -26,6 +26,11 @@ abstract class ElasticFront implements Arrayable, ArrayAccess {
         return [];
     }
 
+    public function getSSLPemPath()
+    {
+        return null;
+    }
+
     /**
      * @return array
      */

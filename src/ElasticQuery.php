@@ -34,6 +34,8 @@ class ElasticQuery
      */
     private function applyScopes()
     {
+
+
         foreach ($this->model->scopes as $name => $scope){
             if(! in_array($name,$this->skipScopes)){
                 $scope($this);
@@ -76,7 +78,7 @@ class ElasticQuery
         return $arr;
     }
 
-    public function __construct(ElasticFront $model)
+    public function __construct(ElasticFront $model, $pemPath = null)
     {
         $this->model = $model;
         $hosts = config('app.elastic_front_hosts',[]);
@@ -87,8 +89,12 @@ class ElasticQuery
         $client = ClientBuilder::create()
             ->setHosts($hosts);
 
-        if($path = config('app.elastic_pem_project_relative_path')){
+        if(! empty($pemPath)) {
+            $client = $client->setSSLVerification($pemPath);
+        } elseif ($path = $model->getSSLPemPath()) {
             $client = $client->setSSLVerification($path);
+        } elseif($path = config('app.elastic_pem_project_relative_path')) {
+            $client = $client->setSSLVerification(base_path($path));
         }
 
         $this->client = $client->build();
