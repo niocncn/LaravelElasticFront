@@ -11,11 +11,11 @@ abstract class ElasticFront implements Arrayable, ArrayAccess {
 
     use RelationsTrait, ModelQuery;
 
-    protected $client;
     public static $elasticIndex;
     public static $wpEntity;
     public static $searchFields = [];
-    public $scopes = [];
+    protected $client;
+    protected $scopes = [];
 
     /**
      * @param array $model

@@ -34,11 +34,12 @@ class ElasticQuery
      */
     private function applyScopes()
     {
-
-
-        foreach ($this->model->scopes as $name => $scope){
-            if(! in_array($name,$this->skipScopes)){
-                $scope($this);
+        foreach(get_class_methods($this->model) as $scope){
+            if(str_starts_with($scope, 'globalScope')){
+                $name = strtolower(str_replace('globalScope','',$scope));
+                if(! in_array($name,$this->skipScopes)){
+                    $this->model->{$scope}($this);
+                }
             }
         }
     }
