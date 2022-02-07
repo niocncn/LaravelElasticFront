@@ -84,9 +84,14 @@ class ElasticQuery
             $hosts = $model->elasticHosts();
         }
 
-        $this->client = ClientBuilder::create()
-            ->setHosts($hosts)
-            ->build();
+        $client = ClientBuilder::create()
+            ->setHosts($hosts);
+
+        if($path = config('app.elastic_pem_project_relative_path')){
+            $client = $client->setSSLVerification($path);
+        }
+
+        $this->client = $client->build();
     }
 
     /**
