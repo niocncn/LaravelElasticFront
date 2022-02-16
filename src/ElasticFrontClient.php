@@ -24,10 +24,13 @@ class ElasticFrontClient{
 
     public $client;
 
-    public function __construct($elasticHosts)
+    public function __construct($elasticHosts, $pemPath = null)
     {
-        $this->client = ClientBuilder::create()
-            ->setHosts($elasticHosts)
+        $this->client = ClientBuilder::create();
+
+        if(! empty($pemPath)) $client->setSSLVerification($pemPath);
+
+        $this->client = $client->setHosts($elasticHosts)
             ->build();
     }
 
