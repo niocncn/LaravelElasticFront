@@ -28,9 +28,9 @@ class ElasticFrontClient{
     {
         $this->client = ClientBuilder::create();
 
-        if(! empty($pemPath)) $client->setSSLVerification($pemPath);
+        if(! empty($pemPath)) $this->client->setSSLVerification($pemPath);
 
-        $this->client = $client->setHosts($elasticHosts)
+        $this->client = $this->client->setHosts($elasticHosts)
             ->build();
     }
 
