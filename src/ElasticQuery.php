@@ -45,6 +45,8 @@ class ElasticQuery
         }
     }
 
+
+
     /**
      * @param array $fields
      * @return $this
@@ -89,7 +91,7 @@ class ElasticQuery
                     "must_not" => $this->must_not,
                     "should" => $this->should
                 ]
-            ],
+            ]
         ];
 
         if(! empty($this->highlightFields)){
