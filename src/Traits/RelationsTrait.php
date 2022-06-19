@@ -16,7 +16,8 @@ trait RelationsTrait
         if(is_array($value)){
             $collection = collect([]);
             foreach ($value as $item){
-                $collection->add($this->findRelated($item));
+                $found = $this->findRelated($item);
+                if($found) $collection->add($found);
             }
             return $collection;
         }
