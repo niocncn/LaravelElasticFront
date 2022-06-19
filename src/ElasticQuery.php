@@ -28,20 +28,38 @@ class ElasticQuery
     protected $limit = 10;
     protected $sort = [ 'id' => [ 'order' => 'desc' ]];
     protected $fields = [];
+    protected $highlightFields = [];
 
     /**
      *
      */
     private function applyScopes()
     {
-        foreach(get_class_methods($this->model) as $scope){
-            if(str_starts_with($scope, 'globalScope')){
-                $name = strtolower(str_replace('globalScope','',$scope));
-                if(! in_array($name,$this->skipScopes)){
-                    $this->model->{$scope}($this);
-                }
+        foreach ($this->model->scopes as $name => $scope){
+            if(! in_array($name,$this->skipScopes)){
+                $scope($this);
             }
         }
+    }
+
+
+    /**
+     * @param array $fields
+     * @return $this
+     */
+    public function highlightFields(array $fields = []) : ElasticQuery
+    {
+        if(! Arr::isAssoc($fields)){
+            $arr = [];
+            foreach ($fields as $field){
+                $arr[$field] = (object) [];
+            }
+            $fields = $arr;
+        }
+
+        $this->highlightFields = $fields;
+
+        return $this;
     }
 
     /**
@@ -70,7 +88,14 @@ class ElasticQuery
                     "should" => $this->should
                 ]
             ],
+
         ];
+
+        if(! empty($this->highlightFields)){
+            $arr['highlight'] = [
+                'fields' => $this->highlightFields
+            ];
+        }
 
         if(count($this->fields) > 0) $arr["_source"] = $this->fields;
 
@@ -79,7 +104,7 @@ class ElasticQuery
         return $arr;
     }
 
-    public function __construct(ElasticFront $model, $pemPath = null)
+    public function __construct(ElasticFront $model)
     {
         $this->model = $model;
         $hosts = config('app.elastic_front_hosts',[]);
@@ -87,18 +112,9 @@ class ElasticQuery
             $hosts = $model->elasticHosts();
         }
 
-        $client = ClientBuilder::create()
-            ->setHosts($hosts);
-
-        if(! empty($pemPath)) {
-            $client = $client->setSSLVerification($pemPath);
-        } elseif ($path = $model->getSSLPemPath()) {
-            $client = $client->setSSLVerification($path);
-        } elseif($path = config('app.elastic_pem_project_relative_path')) {
-            $client = $client->setSSLVerification(base_path($path));
-        }
-
-        $this->client = $client->build();
+        $this->client = ClientBuilder::create()
+            ->setHosts($hosts)
+            ->build();
     }
 
     /**
@@ -162,15 +178,6 @@ class ElasticQuery
     }
 
     /**
-     * @param $limit
-     * @return $this
-     */
-    public function take($limit) : self
-    {
-        return $this->limit($limit);
-    }
-
-    /**
      * @param $sort
      * @return $this
      */
@@ -207,44 +214,7 @@ class ElasticQuery
             'body' => $this->getSearchBody()
         ]);
 
-        return new Collection(
-            array_map(
-                function($item) { return $this->loadRelations($item['_source']); },
-                Arr::get($res,'hits.hits',[])
-            )
-        );
-    }
-
-    /**
-     * Get count documents
-     * @return integer
-     */
-    public function count() : int
-    {
-        $this->applyScopes();
-
-        return (int) Arr::get($this->client->count([
-            'index' => $this->model::$elasticIndex,
-            'body' => [
-                "query" => [
-                    "bool" => [
-                        "must" => $this->must,
-                        "must_not" => $this->must_not,
-                        "should" => $this->should
-                    ]
-                ],
-            ]
-        ]),'count',0);
-    }
-
-    /**
-     * Get all elements from the collection
-     *
-     * @return Collection
-     */
-    public function all() : Collection
-    {
-        return $this->limit(10000)->get();
+        return $this->collectHits($res);
     }
 
     /**
@@ -273,14 +243,25 @@ class ElasticQuery
 
         $total = Arr::get($res,'hits.total.value',0);
 
-        $items = new Collection(
-            array_map(
-                function($item) { return $this->loadRelations($item['_source']); },
-                Arr::get($res,'hits.hits',[])
-            )
-        );
+        $items = $this->collectHits($res);
 
         return (new ElasticPagination($items,$total,$this->limit,$page,['path' => request()->path()]))->withQueryString();
+    }
+
+    private function collectHits (array $response) : Collection
+    {
+        return new Collection(
+            array_map(
+                function($item) {
+                    $source = $item['_source'];
+                    $source['__meta'] = [
+                        'score' => Arr::get($item,'_score',0),
+                        'highlight' => Arr::get($item,'highlight')
+                    ];
+                    return $this->loadRelations($source); },
+                Arr::get($response,'hits.hits',[])
+            )
+        );
     }
 
     /**
@@ -368,7 +349,7 @@ class ElasticQuery
      */
     public function whereIn(string $field, array $values, bool $preserveKey = false) : self
     {
-       if(! $preserveKey) $field = $this->getTermKey($field, $values);
+        if(! $preserveKey) $field = $this->getTermKey($field, $values);
 
         $this->must([
             'terms' => [
