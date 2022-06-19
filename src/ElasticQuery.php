@@ -28,6 +28,7 @@ class ElasticQuery
     protected $limit = 10;
     protected $sort = [ 'id' => [ 'order' => 'desc' ]];
     protected $fields = [];
+    protected $highlightFields = [];
 
     /**
      *
@@ -42,6 +43,25 @@ class ElasticQuery
                 }
             }
         }
+    }
+
+    /**
+     * @param array $fields
+     * @return $this
+     */
+    public function highlightFields(array $fields = []) : ElasticQuery
+    {
+        if(! Arr::isAssoc($fields)){
+            $arr = [];
+            foreach ($fields as $field){
+                $arr[$field] = (object) [];
+            }
+            $fields = $arr;
+        }
+
+        $this->highlightFields = $fields;
+
+        return $this;
     }
 
     /**
@@ -71,6 +91,12 @@ class ElasticQuery
                 ]
             ],
         ];
+
+        if(! empty($this->highlightFields)){
+            $arr['highlight'] = [
+                'fields' => $this->highlightFields
+            ];
+        }
 
         if(count($this->fields) > 0) $arr["_source"] = $this->fields;
 
@@ -193,6 +219,26 @@ class ElasticQuery
     }
 
     /**
+     * @param array $response
+     * @return Collection
+     */
+    private function collectHits (array $response) : Collection
+    {
+        return new Collection(
+            array_map(
+                function($item) {
+                    $source = $item['_source'];
+                    $source['__meta'] = [
+                        'score' => Arr::get($item,'_score',0),
+                        'highlight' => Arr::get($item,'highlight')
+                    ];
+                    return $this->loadRelations($source); },
+                Arr::get($response,'hits.hits',[])
+            )
+        );
+    }
+
+    /**
      * Get collection of documents
      * @return Collection
      */
@@ -207,12 +253,7 @@ class ElasticQuery
             'body' => $this->getSearchBody()
         ]);
 
-        return new Collection(
-            array_map(
-                function($item) { return $this->loadRelations($item['_source']); },
-                Arr::get($res,'hits.hits',[])
-            )
-        );
+        return $this->collectHits($res);
     }
 
     /**
@@ -273,12 +314,7 @@ class ElasticQuery
 
         $total = Arr::get($res,'hits.total.value',0);
 
-        $items = new Collection(
-            array_map(
-                function($item) { return $this->loadRelations($item['_source']); },
-                Arr::get($res,'hits.hits',[])
-            )
-        );
+        $items = $this->collectHits($res);
 
         return (new ElasticPagination($items,$total,$this->limit,$page,['path' => request()->path()]))->withQueryString();
     }
@@ -368,7 +404,7 @@ class ElasticQuery
      */
     public function whereIn(string $field, array $values, bool $preserveKey = false) : self
     {
-       if(! $preserveKey) $field = $this->getTermKey($field, $values);
+        if(! $preserveKey) $field = $this->getTermKey($field, $values);
 
         $this->must([
             'terms' => [
